@@ -39,8 +39,8 @@ if [ ! -d build/system-charts ]; then
 fi
 
 if [ ! -d $CHART_REPO_DIR ]; then
-    # TODO: Check whether shallow clone for specific refs can be used instead
-    git clone --branch $CHART_DEFAULT_BRANCH https://github.com/rancher/charts $CHART_REPO_DIR
+    # TODO: Any problem shallow cloning?
+    git clone --depth=1 --branch $CHART_DEFAULT_BRANCH https://github.com/rancher/charts $CHART_REPO_DIR
 fi
 
 if [ ${ARCH} == amd64 ]; then

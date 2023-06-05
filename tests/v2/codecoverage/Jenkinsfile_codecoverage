@@ -106,7 +106,7 @@ node {
           }
           dir('/home/jenkins/go/src/github.com/rancherlabs') {
               echo "cloning corral-packages repo"
-              sh "git clone https://github.com/rancherlabs/corral-packages.git"
+              sh "git clone --depth 1 https://github.com/rancherlabs/corral-packages.git"
           }
           dir ("/home/jenkins/go/src/github.com/") {
             try {

@@ -209,7 +209,7 @@ class AppCli(BaseCli):
         current_dir = os.getcwd()
         os.chdir(DATA_SUBDIR)
         get_charts_cmd = \
-            run_command("git clone -b {} {}".format(branch, catalog_url))
+            run_command("git clone --depth 1 -b {} {}".format(branch, catalog_url))
         time.sleep(5)
         os.chdir("{}/integration-test-charts/charts/{}/{}".
                  format(DATA_SUBDIR, chart, version))
