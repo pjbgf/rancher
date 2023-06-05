@@ -28,7 +28,6 @@ jobs:
 
       # Break-down each step in make ci, so that they can be retried independently.
       - run: make validate
-      - run: make build
-      - run: make package
+      - run: make quick # build and package
       - run: make test
       - run: make chart/ci

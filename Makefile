@@ -17,9 +17,7 @@ endif
 	@mv $(DAPPER_BINARY).tmp $(DAPPER_BINARY)
 
 dapper.exe:
-	Invoke-WebRequest -Uri $(DAPPER_ROOT_URL)/dapper-Windows-x86_64.exe -OutFile $$GITHUB_PATH
-	
-
+	@curl -sL $(DAPPER_ROOT_URL)/dapper-Windows-x86_64.exe -OutFile ./$(DAPPER_BINARY)
 
 $(TARGETS): $(DAPPER_BINARY)
 	@if [ "$@" = "post-release-checks" ] || [ "$@" = "list-gomod-updates" ] || [ "$@" = "check-chart-kdm-source-values" ]; then \
