@@ -19,7 +19,7 @@ endif
 	@mv $(DAPPER_BINARY).tmp $(DAPPER_BINARY)
 
 dapper.exe:
-	@curl.exe -sfL $(DAPPER_ROOT_URL)/dapper-Windows-x86_64.exe -o $(DAPPER_BINARY)
+	@curl.exe -sfL $(DAPPER_ROOT_URL)/dapper-Windows-x86_64.exe -o $(DAPPER_COMMAND)
 
 $(TARGETS): $(DAPPER_BINARY)
 	@if [ "$@" = "post-release-checks" ] || [ "$@" = "list-gomod-updates" ] || [ "$@" = "check-chart-kdm-source-values" ]; then \

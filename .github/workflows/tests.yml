@@ -8,14 +8,41 @@ on:
 permissions:
   contents: read
 
+env:
+  REPO: localhost:5000/rancher
+
+
 jobs:
 
-  compatibility:
+  tests:
+    services:
+      registry:
+        image: registry:2.8
+        ports:
+          - 5000:5000
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+      - name: Setup Go
+        uses: actions/setup-go@v3.5.0
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - run: make validate
+      - run: make quick # build and package
+      - run: make test
+      - run: make chart/ci
+
+  provisioning-tests:
     strategy:
       fail-fast: false
       matrix:
         go-version: [1.20.x]
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-latest]
+        provisioning-dist: [k3s, rke2]
+        provisioning-run: [(General|Provisioning), Operation]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -27,6 +54,11 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       # Break-down each step in make ci, so that they can be retried independently.
+      - run: make provisioning-tests
+        env:
+          V2PROV_TEST_DIST: ${{ matrix.provisioning-dist }}
+          V2PROV_TEST_RUN_REGEX: "^Test_${{ matrix.provisioning-run }}_.*$"
+          
       - run: make validate
       - run: make quick # build and package
       - run: make test

@@ -1,0 +1,24 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)
+
+source version
+
+ARCH=${ARCH:-"amd64"}
+SYSTEM_CHART_REPO_DIR=build/system-charts
+SYSTEM_CHART_DEFAULT_BRANCH=${SYSTEM_CHART_DEFAULT_BRANCH:-"dev-v2.7"}
+CHART_REPO_DIR=build/charts
+CHART_DEFAULT_BRANCH=${CHART_DEFAULT_BRANCH:-"dev-v2.7"}
+
+DEV_BASE_IMAGE="quay.io/paulinhu/opt-test:linux-${VERSION}"
+
+cd ../package
+
+docker build \
+    --build-arg VERSION="${TAG}" --build-arg ARCH="${ARCH}" \
+    --build-arg RANCHER_TAG="${TAG}" --build-arg RANCHER_REPO="${REPO}" \
+    -t "${DEV_BASE_IMAGE}" -f Dockerfile-dev-base .
+
+echo "Built ${DEV_BASE_IMAGE}"
+echo
