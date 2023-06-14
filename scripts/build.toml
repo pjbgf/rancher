@@ -1,0 +1,2 @@
+command = ["./scripts/ci"]
+output_path = "./bin"
