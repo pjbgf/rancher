@@ -31,33 +31,33 @@ for PKGENV in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH; do
    fi
 done
 
-# package/Dockerfile
+# package/Dockerfile.deps
 for DFARG in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH CATTLE_KDM_BRANCH; do
-   FOUND_VALUE=$(grep ^"ARG ${DFARG}" package/Dockerfile | awk -F'=' '{ print $2 }')
+   FOUND_VALUE=$(grep ^"ARG ${DFARG}" package/Dockerfile.deps | awk -F'=' '{ print $2 }')
    if [ -n "${RELEASE_TYPE}" ]; then
-      echo -n "${DFARG}: ${FOUND_VALUE} in package/Dockerfile: "
+      echo -n "${DFARG}: ${FOUND_VALUE} in package/Dockerfile.deps: "
       if [ "${FOUND_VALUE}" != "${REQUIRED_VALUE}" ]; then
         echo "INCORRECT (should be ${REQUIRED_VALUE})"
       else
         echo "CORRECT"
       fi
    else
-      echo "* ${DFARG}: ${FOUND_VALUE} (\`package/Dockerfile\`)"
+      echo "* ${DFARG}: ${FOUND_VALUE} (\`package/Dockerfile.deps\`)"
    fi
 done
 
-# Dockerfile.dapper
+# package/Dockerfile.dev
 for DFDENV in CATTLE_KDM_BRANCH; do
-   FOUND_VALUE=$(grep ^"ENV ${DFDENV}" Dockerfile.dapper| awk -F'=' '{ print $2 }')
+   FOUND_VALUE=$(grep ^"ENV ${DFDENV}" package/Dockerfile.dev| awk -F'=' '{ print $2 }')
    if [ -n "${RELEASE_TYPE}" ]; then
-      echo -n "${DFDENV}: ${FOUND_VALUE} in Dockerfile.dapper: "
+      echo -n "${DFDENV}: ${FOUND_VALUE} in package/Dockerfile.dev: "
       if [ "${FOUND_VALUE}" != "${REQUIRED_VALUE}" ]; then
         echo "INCORRECT (should be ${REQUIRED_VALUE})"
       else
         echo "CORRECT"
       fi
    else
-      echo "* ${DFDENV}: ${FOUND_VALUE} (\`Dockerfile.dapper\`)"
+      echo "* ${DFDENV}: ${FOUND_VALUE} (\`package/Dockerfile.dev\`)"
    fi
 done
 

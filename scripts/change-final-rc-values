@@ -26,14 +26,14 @@ for PKGENV in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH; do
    sed -i "/^${PKGENV}/ s/${CURRENT_BRANCH}/${NEW_BRANCH}/" scripts/package-env
 done
 
-# package/Dockerfile
+# package/Dockerfile.deps
 for DFARG in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH CATTLE_KDM_BRANCH; do
-   sed -i "/ARG ${DFARG}/ s/${CURRENT_BRANCH}/${NEW_BRANCH}/" package/Dockerfile
+   sed -i "/ARG ${DFARG}/ s/${CURRENT_BRANCH}/${NEW_BRANCH}/" package/Dockerfile.deps
 done
 
-# Dockerfile.dapper
+# package/Dockerfile.dev
 for DFDENV in CATTLE_KDM_BRANCH; do
-   sed -i "/ENV ${DFDENV}/ s/${CURRENT_BRANCH}/${NEW_BRANCH}/" Dockerfile.dapper
+   sed -i "/ENV ${DFDENV}/ s/${CURRENT_BRANCH}/${NEW_BRANCH}/" package/Dockerfile.dev
 done
 
 # pkg/settings/setting.go
