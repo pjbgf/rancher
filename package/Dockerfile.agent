@@ -3,6 +3,8 @@ ARG RANCHER_REPO=rancher
 FROM ${RANCHER_REPO}/rancher:${RANCHER_TAG} as rancher
 
 FROM registry.suse.com/bci/bci-base:15.4
+LABEL description="Rancher Manager agent used in downstream clusters."
+
 ARG ARCH=amd64
 
 ENV KUBECTL_VERSION v1.23.6

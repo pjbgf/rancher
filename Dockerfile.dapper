@@ -1,7 +1,9 @@
-FROM quay.io/paulinhu/opt-test:linux5
+ARG IMAGE_REPO=rancher
+
+FROM ${IMAGE_REPO}/rancher-dev
 
 ARG DAPPER_HOST_ARCH
-ARG ARCH
+ENV HOST_ARCH=${DAPPER_HOST_ARCH} ARCH=${DAPPER_HOST_ARCH}
 
 ENV HELM_HOME /root/.helm
 ENV DAPPER_ENV REPO TAG CI DRONE_BUILD_NUMBER DRONE_TAG DRONE_COMMIT DRONE_BRANCH DRONE_BUILD_EVENT SYSTEM_CHART_DEFAULT_BRANCH FOSSA_API_KEY GOGET_MODULE GOGET_VERSION RELEASE_ACTION RELEASE_TYPE POSTRELEASE_RANCHER_VERSION POSTRELEASE_RANCHER_STABLE DEBUG V2PROV_TEST_DIST V2PROV_TEST_RUN_REGEX
@@ -13,11 +15,6 @@ ARG DRONE_BUILD_NUMBER
 ENV DAPPER_RUN_ARGS "-v rancher2-go16-pkg-1:/go/pkg -v rancher2-go16-cache-1:/root/.cache/go-build --privileged --network=host --label CI=${CI} --label DRONE_BUILD_NUMBER=${DRONE_BUILD_NUMBER}"
 ENV GOCACHE /root/.cache/go-build
 ENV HOME ${DAPPER_SOURCE}
-
-# set up helm unittest - only needs to run on one arch. Needs to run after $HOME has been changed so we can find it later 
-RUN if [ "${ARCH}" == "amd64" ]; then \
-        helm_v3 plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION}; \
-    fi
 
 VOLUME /var/lib/rancher
 VOLUME /var/lib/kubelet
