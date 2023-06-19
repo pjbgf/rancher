@@ -1,2 +1,2 @@
-command = ["./scripts/ci"]
+command = ["./scripts/quick"]
 output_path = "./bin"

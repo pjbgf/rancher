@@ -118,3 +118,7 @@ ENV HELM_HOME /root/.helm
 RUN if [ "${ARCH}" == "amd64" ]; then \
         helm_v3 plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION}; \
     fi
+
+# Install buildah and podman. Ensure that docker.io is the default registry.
+RUN zypper install -y buildah podman && \
+    echo "unqualified-search-registries = ['docker.io']" > /etc/containers/registries.conf
