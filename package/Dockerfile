@@ -108,8 +108,8 @@ RUN curl -sLf ${KUSTOMIZE_URL} | tar -xzf - -C /usr/bin
 # set up helm 2
 RUN curl -sLf ${!HELM_URL_V2} > /usr/bin/rancher-helm && \
     curl -sLf ${!TILLER_URL} > /usr/bin/rancher-tiller && \
-    ln -s /usr/bin/rancher-helm /usr/bin/helm && \
-    ln -s /usr/bin/rancher-tiller /usr/bin/tiller && \
+    ln -sf /usr/bin/rancher-helm /usr/bin/helm && \
+    ln -sf /usr/bin/rancher-tiller /usr/bin/tiller && \
     chmod +x /usr/bin/rancher-helm /usr/bin/rancher-tiller
 
 # set up helm 3

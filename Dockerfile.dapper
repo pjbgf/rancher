@@ -1,4 +1,4 @@
-FROM quay.io/paulinhu/opt-test:linux4
+FROM quay.io/paulinhu/opt-test:linux5
 
 ARG DAPPER_HOST_ARCH
 ARG ARCH

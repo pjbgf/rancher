@@ -1,3 +1,5 @@
+FROM gcr.io/kaniko-project/executor:slim as kaniko
+
 FROM registry.suse.com/bci/golang:1.19
 
 ARG DAPPER_HOST_ARCH
@@ -119,6 +121,4 @@ RUN if [ "${ARCH}" == "amd64" ]; then \
         helm_v3 plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION}; \
     fi
 
-# Install buildah and podman. Ensure that docker.io is the default registry.
-RUN zypper install -y buildah podman && \
-    echo "unqualified-search-registries = ['docker.io']" > /etc/containers/registries.conf
+COPY --from=kaniko /kaniko/executor /usr/local/bin/kaniko

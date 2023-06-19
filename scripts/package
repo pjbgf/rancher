@@ -21,9 +21,13 @@ if [ ${ARCH} == s390x ]; then
     ETCD_UNSUPPORTED_ARCH=s390x
 fi
 
-buildah build --isolation=chroot --build-arg VERSION=${TAG} --build-arg ETCD_UNSUPPORTED_ARCH=${ETCD_UNSUPPORTED_ARCH} --build-arg ARCH=${ARCH} --build-arg IMAGE_REPO=${REPO} --build-arg SYSTEM_CHART_DEFAULT_BRANCH=${SYSTEM_CHART_DEFAULT_BRANCH} --build-arg CHART_DEFAULT_BRANCH=${CHART_DEFAULT_BRANCH} -t ${IMAGE} .
-
-buildah build --isolation=chroot --build-arg VERSION=${TAG} --build-arg ARCH=${ARCH} --build-arg RANCHER_TAG=${TAG} --build-arg RANCHER_REPO=${REPO} -t ${AGENT_IMAGE} -f Dockerfile.agent .
+# The images were initially built with docker. The natural migration path
+# was to use buildah, but due to an issue (containers/buildah#1901) it was
+# decided to use kaniko instead. This makes the process slightly different
+# than it was before, as the push decision needs to be made at the same time
+# as the build.
+kaniko --no-push --build-arg VERSION=${TAG} --build-arg ETCD_UNSUPPORTED_ARCH=${ETCD_UNSUPPORTED_ARCH} --build-arg ARCH=${ARCH} --build-arg IMAGE_REPO=${REPO} --build-arg SYSTEM_CHART_DEFAULT_BRANCH=${SYSTEM_CHART_DEFAULT_BRANCH} --build-arg CHART_DEFAULT_BRANCH=${CHART_DEFAULT_BRANCH} --destination ${IMAGE} --dockerfile Dockerfile  --context dir:///go/src/github.com/rancher/rancher/
+kaniko --no-push --build-arg VERSION=${TAG} --build-arg ARCH=${ARCH} --build-arg RANCHER_TAG=${TAG} --build-arg RANCHER_REPO=${REPO} --destination ${AGENT_IMAGE} --dockerfile Dockerfile.agent --context dir:///go/src/github.com/rancher/rancher/
 
 mkdir -p ../dist
 echo ${IMAGE} > ../dist/images
