@@ -126,10 +126,11 @@ func GatherTargetImagesAndSources(systemChartsPath, chartsPath string, imagesFro
 		externalLinuxImages["rke2All"] = rke2LinuxImages
 	}
 
+	repo := repoOrDefault()
 	sort.Strings(imagesFromArgs)
-	winsIndex := sort.SearchStrings(imagesFromArgs, "rancher/wins")
+	winsIndex := sort.SearchStrings(imagesFromArgs, fmt.Sprintf("%s/wins", repo))
 	if winsIndex > len(imagesFromArgs)-1 {
-		return ImageTargetsAndSources{}, fmt.Errorf("rancher/wins upgrade image not found")
+		return ImageTargetsAndSources{}, fmt.Errorf("%s/wins upgrade image not found", repo)
 	}
 
 	winsAgentUpdateImage := imagesFromArgs[winsIndex]
@@ -159,6 +160,14 @@ func GatherTargetImagesAndSources(systemChartsPath, chartsPath string, imagesFro
 		TargetWindowsImages:           targetWindowsImages,
 		TargetWindowsImagesAndSources: targetWindowsImagesAndSources,
 	}, nil
+}
+
+func repoOrDefault() string {
+	repo, ok := os.LookupEnv("REPO")
+	if !ok {
+		return "rancher"
+	}
+	return repo
 }
 
 // LoadScript produces executable files for Linux and Windows
@@ -312,12 +321,24 @@ func checkImage(image string) error {
 	if imageNameTag[1] == "" {
 		return fmt.Errorf("Extracted tag from image [%s] is empty", image)
 	}
-	if !strings.HasPrefix(imageNameTag[0], "rancher/") {
-		return fmt.Errorf("Image [%s] does not start with rancher/", image)
-	}
 	if strings.HasSuffix(imageNameTag[0], "-") {
 		return fmt.Errorf("Image [%s] has trailing '-', probably an error in image substitution", image)
 	}
+	prefixes := []string{"rancher/"}
+	if repo, ok := os.LookupEnv("REPO"); ok {
+		prefixes = append(prefixes, fmt.Sprintf("%s/", repo))
+	}
+	match := false
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(imageNameTag[0], prefix) {
+			match = true
+			break
+		}
+	}
+	if !match {
+		return fmt.Errorf("Image [%s] does not start with rancher/", image)
+	}
+
 	return nil
 }
 
