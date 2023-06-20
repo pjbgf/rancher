@@ -31,18 +31,18 @@ for PKGENV in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH; do
    fi
 done
 
-# package/Dockerfile
+# package/Dockerfile.deps
 for DFARG in SYSTEM_CHART_DEFAULT_BRANCH CHART_DEFAULT_BRANCH CATTLE_KDM_BRANCH; do
-   FOUND_VALUE=$(grep ^"ARG ${DFARG}" package/Dockerfile | awk -F'=' '{ print $2 }')
+   FOUND_VALUE=$(grep ^"ARG ${DFARG}" package/Dockerfile.deps | awk -F'=' '{ print $2 }')
    if [ -n "${RELEASE_TYPE}" ]; then
-      echo -n "${DFARG}: ${FOUND_VALUE} in package/Dockerfile: "
+      echo -n "${DFARG}: ${FOUND_VALUE} in package/Dockerfile.deps: "
       if [ "${FOUND_VALUE}" != "${REQUIRED_VALUE}" ]; then
         echo "INCORRECT (should be ${REQUIRED_VALUE})"
       else
         echo "CORRECT"
       fi
    else
-      echo "* ${DFARG}: ${FOUND_VALUE} (\`package/Dockerfile\`)"
+      echo "* ${DFARG}: ${FOUND_VALUE} (\`package/Dockerfile.deps\`)"
    fi
 done
 
