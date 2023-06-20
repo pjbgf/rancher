@@ -11,9 +11,7 @@ CHART_DEFAULT_BRANCH=${CHART_DEFAULT_BRANCH:-"dev-v2.7"}
 
 cd $(dirname $0)/../package
 
-../scripts/k3s-images.sh
-
-cp ../bin/rancher ../bin/agent ../bin/data.json ../bin/k3s-airgap-images.tar .
+cp ../bin/rancher ../bin/agent ../bin/data.json .
 
 # Make sure the used data.json is a release artifact
 cp ../bin/data.json ../bin/rancher-data.json

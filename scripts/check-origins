@@ -12,7 +12,6 @@ source version
 source package-env
 
 cd ../package
-../scripts/k3s-images.sh
 
 cp ../bin/data.json ../bin/rancher-data.json
 
