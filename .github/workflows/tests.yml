@@ -60,7 +60,8 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       # Break-down each step in make ci, so that they can be retried independently.
-      - run: make provisioning-tests
+      - name: ${{ matrix.provisioning-dist }} provisioning ${{ matrix.provisioning-run }}
+        run: make provisioning-tests
         env:
           V2PROV_TEST_DIST: ${{ matrix.provisioning-dist }}
           V2PROV_TEST_RUN_REGEX: "^Test_${{ matrix.provisioning-run }}_.*$"
