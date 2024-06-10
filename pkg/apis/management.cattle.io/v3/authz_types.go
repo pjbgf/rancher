@@ -6,7 +6,6 @@ import (
 	"github.com/rancher/norman/condition"
 	"github.com/rancher/norman/types"
 	v1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,10 +51,6 @@ type ProjectStatus struct {
 	// Conditions are a set of indicators about aspects of the project.
 	// +optional
 	Conditions []ProjectCondition `json:"conditions,omitempty"`
-
-	// PodSecurityPolicyTemplateName is the pod security policy template associated with the project.
-	// +optional
-	PodSecurityPolicyTemplateName string `json:"podSecurityPolicyTemplateId,omitempty"`
 }
 
 // ProjectCondition is the status of an aspect of the project.
@@ -125,6 +120,7 @@ func (p *ProjectSpec) ObjClusterName() string {
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // GlobalRole defines rules that can be applied to the local cluster and or every downstream cluster.
@@ -166,6 +162,45 @@ type GlobalRole struct {
 	// and must exactly match with one existing namespace.
 	// +optional
 	NamespacedRules map[string][]rbacv1.PolicyRule `json:"namespacedRules,omitempty"`
+
+	// InheritedFleetWorkspacePermissions are the permissions granted by this GlobalRole in every fleet workspace besides
+	// the local one.
+	// +optional
+	InheritedFleetWorkspacePermissions *FleetWorkspacePermission `json:"inheritedFleetWorkspacePermissions,omitempty"`
+
+	// Status is the most recently observed status of the GlobalRole.
+	// +optional
+	Status GlobalRoleStatus `json:"status,omitempty"`
+}
+
+// FleetWorkspacePermission defines permissions that will apply to all fleet workspaces except local.
+type FleetWorkspacePermission struct {
+	// ResourceRules rules granted in all backing namespaces for all fleet workspaces besides the local one.
+	ResourceRules []rbacv1.PolicyRule `json:"resourceRules,omitempty" yaml:"resourceRules,omitempty"`
+	// WorkspaceVerbs verbs used to grant permissions to the cluster-wide fleetworkspace resources. ResourceNames for
+	// this rule will contain all fleet workspace names except local.
+	WorkspaceVerbs []string `json:"workspaceVerbs,omitempty" yaml:"workspaceVerbs,omitempty"`
+}
+
+// GlobalRoleStatus represents the most recently observed status of the GlobalRole.
+type GlobalRoleStatus struct {
+	// ObservedGeneration is the most recent generation (metadata.generation in GlobalRole CR)
+	// observed by the controller. Populated by the system.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// LastUpdate is a k8s timestamp of the last time the status was updated.
+	// +optional
+	LastUpdate string `json:"lastUpdateTime,omitempty"`
+
+	// Summary is a string. One of "Complete", "InProgress" or "Error".
+	// +optional
+	Summary string `json:"summary,omitempty"`
+
+	// Conditions is a slice of Condition, indicating the status of specific backing RBAC objects.
+	// There is one condition per ClusterRole and Role managed by the GlobalRole.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +genclient
@@ -268,32 +303,6 @@ type RoleTemplate struct {
 }
 
 // +genclient
-// +kubebuilder:skipversion
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type PodSecurityPolicyTemplate struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Description string                         `json:"description"`
-	Spec        policyv1.PodSecurityPolicySpec `json:"spec,omitempty"`
-}
-
-// +genclient
-// +kubebuilder:skipversion
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type PodSecurityPolicyTemplateProjectBinding struct {
-	types.Namespaced
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	PodSecurityPolicyTemplateName string `json:"podSecurityPolicyTemplateId" norman:"required,type=reference[podSecurityPolicyTemplate]"`
-	TargetProjectName             string `json:"targetProjectId" norman:"required,type=reference[project]"`
-}
-
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ProjectRoleTemplateBinding is the object representing membership of a subject in a project with permissions
@@ -381,8 +390,4 @@ type ClusterRoleTemplateBinding struct {
 
 func (c *ClusterRoleTemplateBinding) ObjClusterName() string {
 	return c.ClusterName
-}
-
-type SetPodSecurityPolicyTemplateInput struct {
-	PodSecurityPolicyTemplateName string `json:"podSecurityPolicyTemplateId" norman:"type=reference[podSecurityPolicyTemplate]"`
 }

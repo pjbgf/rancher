@@ -21,8 +21,8 @@ package v3
 import (
 	"github.com/rancher/lasso/pkg/controller"
 	v3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
-	"github.com/rancher/wrangler/pkg/generic"
-	"github.com/rancher/wrangler/pkg/schemes"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/schemes"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -44,6 +44,7 @@ type Interface interface {
 	Cluster() ClusterController
 	ClusterCatalog() ClusterCatalogController
 	ClusterLogging() ClusterLoggingController
+	ClusterProxyConfig() ClusterProxyConfigController
 	ClusterRegistrationToken() ClusterRegistrationTokenController
 	ClusterRoleTemplateBinding() ClusterRoleTemplateBindingController
 	ClusterTemplate() ClusterTemplateController
@@ -54,6 +55,7 @@ type Interface interface {
 	Feature() FeatureController
 	FleetWorkspace() FleetWorkspaceController
 	FreeIpaProvider() FreeIpaProviderController
+	GenericOIDCProvider() GenericOIDCProviderController
 	GithubProvider() GithubProviderController
 	GlobalDns() GlobalDnsController
 	GlobalDnsProvider() GlobalDnsProviderController
@@ -74,8 +76,6 @@ type Interface interface {
 	OIDCProvider() OIDCProviderController
 	OpenLdapProvider() OpenLdapProviderController
 	PodSecurityAdmissionConfigurationTemplate() PodSecurityAdmissionConfigurationTemplateController
-	PodSecurityPolicyTemplate() PodSecurityPolicyTemplateController
-	PodSecurityPolicyTemplateProjectBinding() PodSecurityPolicyTemplateProjectBindingController
 	Preference() PreferenceController
 	Principal() PrincipalController
 	Project() ProjectController
@@ -161,6 +161,10 @@ func (v *version) ClusterLogging() ClusterLoggingController {
 	return generic.NewController[*v3.ClusterLogging, *v3.ClusterLoggingList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "ClusterLogging"}, "clusterloggings", true, v.controllerFactory)
 }
 
+func (v *version) ClusterProxyConfig() ClusterProxyConfigController {
+	return generic.NewController[*v3.ClusterProxyConfig, *v3.ClusterProxyConfigList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "ClusterProxyConfig"}, "clusterproxyconfigs", true, v.controllerFactory)
+}
+
 func (v *version) ClusterRegistrationToken() ClusterRegistrationTokenController {
 	return generic.NewController[*v3.ClusterRegistrationToken, *v3.ClusterRegistrationTokenList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "ClusterRegistrationToken"}, "clusterregistrationtokens", true, v.controllerFactory)
 }
@@ -199,6 +203,10 @@ func (v *version) FleetWorkspace() FleetWorkspaceController {
 
 func (v *version) FreeIpaProvider() FreeIpaProviderController {
 	return generic.NewNonNamespacedController[*v3.FreeIpaProvider, *v3.FreeIpaProviderList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "FreeIpaProvider"}, "freeipaproviders", v.controllerFactory)
+}
+
+func (v *version) GenericOIDCProvider() GenericOIDCProviderController {
+	return generic.NewNonNamespacedController[*v3.GenericOIDCProvider, *v3.GenericOIDCProviderList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "GenericOIDCProvider"}, "genericoidcproviders", v.controllerFactory)
 }
 
 func (v *version) GithubProvider() GithubProviderController {
@@ -279,14 +287,6 @@ func (v *version) OpenLdapProvider() OpenLdapProviderController {
 
 func (v *version) PodSecurityAdmissionConfigurationTemplate() PodSecurityAdmissionConfigurationTemplateController {
 	return generic.NewNonNamespacedController[*v3.PodSecurityAdmissionConfigurationTemplate, *v3.PodSecurityAdmissionConfigurationTemplateList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "PodSecurityAdmissionConfigurationTemplate"}, "podsecurityadmissionconfigurationtemplates", v.controllerFactory)
-}
-
-func (v *version) PodSecurityPolicyTemplate() PodSecurityPolicyTemplateController {
-	return generic.NewNonNamespacedController[*v3.PodSecurityPolicyTemplate, *v3.PodSecurityPolicyTemplateList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "PodSecurityPolicyTemplate"}, "podsecuritypolicytemplates", v.controllerFactory)
-}
-
-func (v *version) PodSecurityPolicyTemplateProjectBinding() PodSecurityPolicyTemplateProjectBindingController {
-	return generic.NewController[*v3.PodSecurityPolicyTemplateProjectBinding, *v3.PodSecurityPolicyTemplateProjectBindingList](schema.GroupVersionKind{Group: "management.cattle.io", Version: "v3", Kind: "PodSecurityPolicyTemplateProjectBinding"}, "podsecuritypolicytemplateprojectbindings", true, v.controllerFactory)
 }
 
 func (v *version) Preference() PreferenceController {
