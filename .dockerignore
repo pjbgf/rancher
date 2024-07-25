@@ -1,6 +1,5 @@
 ./bin
 ./.dapper
-./build
 ./dist
 ./.idea
 ./default.etcd
