@@ -1,6 +1,8 @@
 package v3
 
 import (
+	"strings"
+
 	"github.com/rancher/norman/condition"
 	"github.com/rancher/norman/types"
 	v1 "k8s.io/api/core/v1"
@@ -10,6 +12,13 @@ import (
 const (
 	UserConditionInitialRolesPopulated condition.Cond = "InitialRolesPopulated"
 	AuthConfigConditionSecretsMigrated condition.Cond = "SecretsMigrated"
+	// AuthConfigConditionShibbolethSecretFixed is applied to an AuthConfig when the
+	// incorrect name for the shibboleth OpenLDAP secret has been fixed.
+	AuthConfigConditionShibbolethSecretFixed condition.Cond = "ShibbolethSecretFixed"
+
+	// AuthConfigOKTAPasswordMigrated is applied when an Okta password has been
+	// moved to a Secret.
+	AuthConfigOKTAPasswordMigrated condition.Cond = "OktaPasswordMigrated"
 )
 
 // +genclient
@@ -63,6 +72,22 @@ type User struct {
 	Status             UserStatus `json:"status"`
 }
 
+// IsSystem returns true if the user is a system user.
+func (u *User) IsSystem() bool {
+	for _, principalID := range u.PrincipalIDs {
+		if strings.HasPrefix(principalID, "system:") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsDefaultAdmin returns true if the user is the default admin user.
+func (u *User) IsDefaultAdmin() bool {
+	return u.Username == "admin"
+}
+
 type UserStatus struct {
 	Conditions []UserCondition `json:"conditions"`
 }
@@ -99,6 +124,9 @@ type UserAttribute struct {
 	LastRefresh     string
 	NeedsRefresh    bool
 	ExtraByProvider map[string]map[string][]string // extra information for the user to print in audit logs, stored per authProvider. example: map[openldap:map[principalid:[openldap_user://uid=testuser1,ou=dev,dc=us-west-2,dc=compute,dc=internal]]]
+	LastLogin       *metav1.Time                   `json:"lastLogin,omitempty"`
+	DisableAfter    *metav1.Duration               `json:"disableAfter,omitempty"` // Overrides DisableInactiveUserAfter setting.
+	DeleteAfter     *metav1.Duration               `json:"deleteAfter,omitempty"`  // Overrides DeleteInactiveUserAfter setting.
 }
 
 type Principals struct {
@@ -334,6 +362,26 @@ type ActiveDirectoryConfig struct {
 	NestedGroupMembershipEnabled *bool    `json:"nestedGroupMembershipEnabled,omitempty" norman:"default=false"`
 }
 
+func (c *ActiveDirectoryConfig) GetUserSearchAttributes(searchAttributes ...string) []string {
+	userSearchAttributes := []string{
+		c.UserObjectClass,
+		c.UserLoginAttribute,
+		c.UserNameAttribute,
+		c.UserEnabledAttribute,
+	}
+	return append(userSearchAttributes, searchAttributes...)
+}
+
+func (c *ActiveDirectoryConfig) GetGroupSearchAttributes(searchAttributes ...string) []string {
+	groupSeachAttributes := []string{
+		c.GroupObjectClass,
+		c.UserLoginAttribute,
+		c.GroupNameAttribute,
+		c.GroupSearchAttribute,
+	}
+	return append(groupSeachAttributes, searchAttributes...)
+}
+
 type ActiveDirectoryTestAndApplyInput struct {
 	ActiveDirectoryConfig ActiveDirectoryConfig `json:"activeDirectoryConfig,omitempty"`
 	Username              string                `json:"username"`
@@ -375,6 +423,29 @@ type LdapFields struct {
 type LdapConfig struct {
 	AuthConfig `json:",inline" mapstructure:",squash"`
 	LdapFields `json:",inline" mapstructure:",squash"`
+}
+
+func (c *LdapConfig) GetUserSearchAttributes(searchAttributes ...string) []string {
+	userSearchAttributes := []string{
+		"dn",
+		c.UserMemberAttribute,
+		c.UserObjectClass,
+		c.UserLoginAttribute,
+		c.UserNameAttribute,
+		c.UserEnabledAttribute,
+	}
+	return append(userSearchAttributes, searchAttributes...)
+}
+
+func (c *LdapConfig) GetGroupSearchAttributes(searchAttributes ...string) []string {
+	groupSeachAttributes := []string{
+		c.GroupMemberUserAttribute,
+		c.GroupObjectClass,
+		c.UserLoginAttribute,
+		c.GroupNameAttribute,
+		c.GroupSearchAttribute,
+	}
+	return append(groupSeachAttributes, searchAttributes...)
 }
 
 type LdapTestAndApplyInput struct {
@@ -437,7 +508,7 @@ type KeyCloakConfig struct {
 
 type OKTAConfig struct {
 	SamlConfig     `json:",inline" mapstructure:",squash"`
-	OpenLdapConfig LdapFields `json:"openLdapConfig" mapstructure:",squash"`
+	OpenLdapConfig LdapFields `json:"openLdapConfig"`
 }
 
 type ShibbolethConfig struct {
@@ -458,7 +529,7 @@ type OIDCConfig struct {
 	ClientSecret       string `json:"clientSecret,omitempty" norman:"required,type=password"`
 	RancherURL         string `json:"rancherUrl" norman:"required,notnullable"`
 	Issuer             string `json:"issuer" norman:"required,notnullable"`
-	AuthEndpoint       string `json:"authEndpoint,omitempty" norman:"required,notnullable"`
+	AuthEndpoint       string `json:"authEndpoint,omitempty"`
 	TokenEndpoint      string `json:"tokenEndpoint,omitempty"`
 	UserInfoEndpoint   string `json:"userInfoEndpoint,omitempty"`
 	JWKSUrl            string `json:"jwksUrl,omitempty"`
@@ -468,6 +539,8 @@ type OIDCConfig struct {
 	GroupsClaim        string `json:"groupsClaim,omitempty"`
 	// Scopes is expected to be a space delimited list of scopes
 	Scopes string `json:"scope,omitempty"`
+	// AcrValue is expected to be string containing the required ACR value
+	AcrValue string `json:"acrValue,omitempty"`
 }
 
 type OIDCTestOutput struct {

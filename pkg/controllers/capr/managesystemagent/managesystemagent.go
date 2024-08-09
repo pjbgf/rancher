@@ -24,9 +24,9 @@ import (
 	"github.com/rancher/rancher/pkg/systemtemplate"
 	"github.com/rancher/rancher/pkg/wrangler"
 	upgradev1 "github.com/rancher/system-upgrade-controller/pkg/apis/upgrade.cattle.io/v1"
-	"github.com/rancher/wrangler/v2/pkg/generic"
-	"github.com/rancher/wrangler/v2/pkg/gvk"
-	"github.com/rancher/wrangler/v2/pkg/name"
+	"github.com/rancher/wrangler/v3/pkg/generic"
+	"github.com/rancher/wrangler/v3/pkg/gvk"
+	"github.com/rancher/wrangler/v3/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -43,7 +43,6 @@ var Kubernetes125 = semver.MustParse("v1.25.0")
 type handler struct {
 	clusterRegistrationTokens v3.ClusterRegistrationTokenCache
 	bundles                   fleetcontrollers.BundleClient
-	rkeControlPlane           v1.RKEControlPlaneController
 	provClusters              rocontrollers.ClusterCache
 }
 
@@ -51,7 +50,6 @@ func Register(ctx context.Context, clients *wrangler.Context) {
 	h := &handler{
 		clusterRegistrationTokens: clients.Mgmt.ClusterRegistrationToken().Cache(),
 		bundles:                   clients.Fleet.Bundle(),
-		rkeControlPlane:           clients.RKE.RKEControlPlane(),
 		provClusters:              clients.Provisioning.Cluster().Cache(),
 	}
 
@@ -180,10 +178,38 @@ func installer(cluster *rancherv1.Cluster, secretName string) []runtime.Object {
 		})
 	}
 
+	// Merge the env vars with the AgentTLSModeStrict
+	found := false
+	for _, ev := range env {
+		if ev.Name == "STRICT_VERIFY" {
+			found = true // The user has specified `STRICT_VERIFY`, we should not attempt to overwrite it.
+		}
+	}
+	if !found {
+		if settings.AgentTLSMode.Get() == settings.AgentTLSModeStrict {
+			env = append(env, corev1.EnvVar{
+				Name:  "STRICT_VERIFY",
+				Value: "true",
+			})
+		} else {
+			env = append(env, corev1.EnvVar{
+				Name:  "STRICT_VERIFY",
+				Value: "false",
+			})
+		}
+	}
+
 	if len(cluster.Spec.RKEConfig.MachineSelectorConfig) == 0 {
 		env = append(env, corev1.EnvVar{
 			Name:  "CATTLE_ROLE_WORKER",
 			Value: "true",
+		})
+	}
+
+	if cluster.Spec.RKEConfig.DataDirectories.SystemAgent != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  capr.SystemAgentDataDirEnvVar,
+			Value: capr.GetSystemAgentDataDir(&cluster.Spec.RKEConfig.RKEClusterSpecCommon),
 		})
 	}
 

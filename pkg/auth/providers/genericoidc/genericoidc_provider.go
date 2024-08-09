@@ -46,25 +46,33 @@ func (g *GenOIDCProvider) GetName() string {
 	return Name
 }
 
-// SearchPrincipals will return a principal of the requested principalType with a displayName and loginName
-// that match the searchValue.  This is done because OIDC does not have a proper lookup mechanism.  In order
+// SearchPrincipals will return a principal of the requested principalType with a displayName
+// that matches the searchValue.  If principalType is empty, both a user principal and a group principal will
+// be returned.  This is done because OIDC does not have a proper lookup mechanism.  In order
 // to provide some degree of functionality that allows manual entry for users/groups, this is the compromise.
 func (g *GenOIDCProvider) SearchPrincipals(searchValue, principalType string, _ v3.Token) ([]v3.Principal, error) {
 	var principals []v3.Principal
 
-	if principalType == "" {
-		principalType = UserType
+	if principalType != GroupType {
+		p := v3.Principal{
+			ObjectMeta:    metav1.ObjectMeta{Name: g.Name + "_" + UserType + "://" + searchValue},
+			DisplayName:   searchValue,
+			LoginName:     searchValue,
+			PrincipalType: UserType,
+			Provider:      g.Name,
+		}
+		principals = append(principals, p)
 	}
 
-	p := v3.Principal{
-		ObjectMeta:    metav1.ObjectMeta{Name: g.Name + "_" + principalType + "://" + searchValue},
-		DisplayName:   searchValue,
-		LoginName:     searchValue,
-		PrincipalType: principalType,
-		Provider:      g.Name,
+	if principalType != UserType {
+		gp := v3.Principal{
+			ObjectMeta:    metav1.ObjectMeta{Name: g.Name + "_" + GroupType + "://" + searchValue},
+			DisplayName:   searchValue,
+			PrincipalType: GroupType,
+			Provider:      g.Name,
+		}
+		principals = append(principals, gp)
 	}
-
-	principals = append(principals, p)
 	return principals, nil
 }
 
@@ -131,12 +139,18 @@ func (g *GenOIDCProvider) groupToPrincipal(groupName string) v3.Principal {
 func (g *GenOIDCProvider) getRedirectURL(config map[string]interface{}) string {
 	authURL, _ := baseoidc.FetchAuthURL(config)
 
-	return fmt.Sprintf(
+	redirectURL := fmt.Sprintf(
 		"%s?client_id=%s&response_type=code&redirect_uri=%s",
 		authURL,
 		config["clientId"],
 		config["rancherUrl"],
 	)
+
+	if config["acrValue"] != nil {
+		redirectURL += fmt.Sprintf("&acr_values=%s", config["acrValue"])
+	}
+
+	return redirectURL
 }
 
 // toPrincipalFromToken uses additional information about the principal found in the token, if available, to provide

@@ -121,6 +121,8 @@ func (p *ProjectSpec) ObjClusterName() string {
 // +genclient:nonNamespaced
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.summary"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // GlobalRole defines rules that can be applied to the local cluster and or every downstream cluster.
@@ -262,6 +264,12 @@ type RoleTemplate struct {
 	// Default to false.
 	// +optional
 	External bool `json:"external"`
+
+	// ExternalRules hold the external PolicyRules that will be used for authorization.
+	// This field is required when External=true and no underlying ClusterRole exists in the local cluster.
+	// This field is just used when the feature flag 'external-rules' is on.
+	// +optional
+	ExternalRules []rbacv1.PolicyRule `json:"externalRules,omitempty"`
 
 	// Hidden if true informs the Rancher UI not to display this RoleTemplate.
 	// Default to false.

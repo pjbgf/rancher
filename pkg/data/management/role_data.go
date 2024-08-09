@@ -2,12 +2,12 @@ package management
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"sort"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	v3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"github.com/rancher/rancher/pkg/features"
 	"github.com/rancher/rancher/pkg/rbac"
@@ -89,7 +89,7 @@ func addRoles(wrangler *wrangler.Context, management *config.ManagementContext) 
 	// restricted-admin will get cluster admin access to all downstream clusters but limited access to the local cluster
 	restrictedAdminRole := addUserRules(rb.addRole("Restricted Admin", "restricted-admin"))
 	restrictedAdminRole.
-		addRule().apiGroups("").resources("secret").verbs("create").
+		addRule().apiGroups("").resources("secrets").verbs("create").
 		addRule().apiGroups("catalog.cattle.io").resources("clusterrepos").verbs("*").
 		addRule().apiGroups("management.cattle.io").resources("clustertemplates").verbs("*").
 		addRule().apiGroups("management.cattle.io").resources("clustertemplaterevisions").verbs("*").
@@ -102,7 +102,8 @@ func addRoles(wrangler *wrangler.Context, management *config.ManagementContext) 
 		addRule().apiGroups("management.cattle.io").resources("nodedrivers").verbs("*").
 		addRule().apiGroups("management.cattle.io").resources("kontainerdrivers").verbs("*").
 		addRule().apiGroups("management.cattle.io").resources("roletemplates").verbs("*").
-		addRule().apiGroups("management.cattle.io").resources("catalogs", "templates", "templateversions").verbs("*")
+		addRule().apiGroups("management.cattle.io").resources("catalogs", "templates", "templateversions").verbs("*").
+		addRule().apiGroups("management.cattle.io").resources("features").verbs("update", "patch", "security-enable").resourceNames("external-rules")
 
 	// restricted-admin can edit settings if rancher is bootstrapped with restricted-admin role
 	if settings.RestrictedDefaultAdmin.Get() == "true" {
@@ -129,7 +130,7 @@ func addRoles(wrangler *wrangler.Context, management *config.ManagementContext) 
 	// TODO enable when groups are "in". they need to be self-service
 
 	if err := rb.reconcileGlobalRoles(wrangler.Mgmt.GlobalRole()); err != nil {
-		return "", errors.Wrap(err, "problem reconciling global roles")
+		return "", fmt.Errorf("problem reconciling global roles: %w", err)
 	}
 
 	// RoleTemplates to be used inside of clusters
@@ -407,9 +408,25 @@ func addRoles(wrangler *wrangler.Context, management *config.ManagementContext) 
 		addRule().apiGroups("monitoring.cattle.io").resources("prometheus").verbs("view").
 		setRoleTemplateNames("view")
 
-	rb.addRoleTemplate("View Monitoring", "monitoring-ui-view", "project", true, false, false)
+	proxyNames := []string{
+		"http:rancher-monitoring-prometheus:9090",
+		"https:rancher-monitoring-prometheus:9090",
+		"http:rancher-monitoring-alertmanager:9093",
+		"https:rancher-monitoring-alertmanager:9093",
+		"http:rancher-monitoring-grafana:80",
+		"https:rancher-monitoring-grafana:80",
+	}
+	endpointNames := []string{
+		"rancher-monitoring-prometheus",
+		"rancher-monitoring-alertmanager",
+		"rancher-monitoring-grafana",
+	}
 
-	rb.addRoleTemplate("View Navlinks", "navlinks-view", "project", true, false, false).
+	rb.addRoleTemplate("View Monitoring", "monitoring-ui-view", "project", true, false, false).
+		addExternalRule().apiGroups("").resources("services/proxy").verbs("get", "create").resourceNames(proxyNames...).
+		addExternalRule().apiGroups("").resources("endpoints").verbs("list").resourceNames(endpointNames...)
+
+	rb.addRoleTemplate("View Navlinks", "navlinks-view", "project", false, false, false).
 		addRule().apiGroups("ui.cattle.io").resources("navlinks").verbs("get", "list", "watch")
 
 	// Not specific to project or cluster
@@ -419,7 +436,7 @@ func addRoles(wrangler *wrangler.Context, management *config.ManagementContext) 
 	//	addRule().apiGroups("management.cattle.io").resources("clusterevents").verbs("get", "list", "watch")
 
 	if err := rb.reconcileRoleTemplates(wrangler.Mgmt.RoleTemplate()); err != nil {
-		return "", errors.Wrap(err, "problem reconciling role templates")
+		return "", fmt.Errorf("problem reconciling role templates: %w", err)
 	}
 
 	adminName, err := BootstrapAdmin(wrangler)
@@ -501,7 +518,7 @@ func BootstrapAdmin(management *wrangler.Context) (string, error) {
 		// Config map does not exist and no users, attempt to create the default admin user
 		bootstrapPassword, bootstrapPasswordIsGenerated, err := GetBootstrapPassword(context.TODO(), management.K8s.CoreV1().Secrets(cattleNamespace))
 		if err != nil {
-			return "", errors.Wrap(err, "failed to retrieve bootstrap password")
+			return "", fmt.Errorf("failed to retrieve bootstrap password: %w", err)
 		}
 
 		bootstrapPasswordHash, _ := bcrypt.GenerateFromPassword([]byte(bootstrapPassword), bcrypt.DefaultCost)
@@ -517,7 +534,7 @@ func BootstrapAdmin(management *wrangler.Context) (string, error) {
 			MustChangePassword: bootstrapPasswordIsGenerated || bootstrapPassword == "admin",
 		})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return "", errors.Wrap(err, "can not ensure admin user exists")
+			return "", fmt.Errorf("can not ensure admin user exists: %w", err)
 		}
 		if err == nil {
 			var serverURL string
@@ -694,9 +711,8 @@ func addClusterRoleForNamespacedCRDs(management *config.ManagementContext) error
 			},
 		},
 	}
-	if err := createOrUpdateClusterRole(management, cr); err != nil {
-		returnErr = multierror.Append(returnErr, err)
-	}
+	err := createOrUpdateClusterRole(management, cr)
+	returnErr = errors.Join(returnErr, err)
 
 	// ProjectCRDsClusterRole is a CR containing rules for granting restricted-admins access to all CRDs that can be created in a
 	// v3.Cluster and v3.Project's namespace
@@ -717,9 +733,9 @@ func addClusterRoleForNamespacedCRDs(management *config.ManagementContext) error
 			},
 		},
 	}
-	if err := createOrUpdateClusterRole(management, cr); err != nil {
-		returnErr = multierror.Append(returnErr, err)
-	}
+	err = createOrUpdateClusterRole(management, cr)
+	returnErr = errors.Join(returnErr, err)
+
 	return returnErr
 }
 

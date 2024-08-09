@@ -29,16 +29,23 @@ func (h *handler) syncAuthConfig(_ string, authConfig *apimgmtv3.AuthConfig) (ru
 
 	switch authConfig.Type {
 	case client.ShibbolethConfigType:
-		return h.migrateAuthConfigToSecret(authConfig, h.migrateShibbolethSecrets)
+		obj, err := h.migrateAuthConfigPasswordToSecret(authConfig,
+			apimgmtv3.AuthConfigConditionSecretsMigrated, h.migrateShibbolethSecrets)
+		if err != nil {
+			return obj, err
+		}
+		return h.fixShibbolethSecretReference(obj)
 	case client.OKTAConfigType:
-		return h.migrateAuthConfigToSecret(authConfig, h.migrateOKTASecrets)
+		return h.migrateAuthConfigPasswordToSecret(authConfig,
+			apimgmtv3.AuthConfigOKTAPasswordMigrated,
+			h.migrateOKTASecrets)
 	default:
 		return h.migrateAuthConfig(authConfig)
 	}
 }
 
 func (h *handler) migrateAuthConfig(authConfig *apimgmtv3.AuthConfig) (runtime.Object, error) {
-	unstructuredConfig, err := getUnstructuredAuthConfig(h.authConfigs, authConfig)
+	unstructuredConfig, err := getUnstructuredAuthConfigByName(h.authConfigs, authConfig.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -54,23 +61,22 @@ func (h *handler) migrateAuthConfig(authConfig *apimgmtv3.AuthConfig) (runtime.O
 	return updated, nil
 }
 
-func (h *handler) migrateAuthConfigToSecret(authConfig *apimgmtv3.AuthConfig, f func(map[string]any) (runtime.Object, error)) (runtime.Object, error) {
-	if apimgmtv3.AuthConfigConditionSecretsMigrated.IsTrue(authConfig) {
+func (h *handler) migrateAuthConfigPasswordToSecret(authConfig *apimgmtv3.AuthConfig, cond condition.Cond, f func(runtime.Unstructured) (runtime.Object, error)) (runtime.Object, error) {
+	if cond.IsTrue(authConfig) {
 		return authConfig, nil
 	}
 
-	updated, err := apimgmtv3.AuthConfigConditionSecretsMigrated.DoUntilTrue(authConfig, func() (runtime.Object, error) {
-		unstructuredConfig, err := getUnstructuredAuthConfig(h.authConfigs, authConfig)
+	updated, err := cond.DoUntilTrue(authConfig, func() (runtime.Object, error) {
+		unstructuredConfig, err := getUnstructuredAuthConfigByName(h.authConfigs, authConfig.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		return f(unstructuredConfig.UnstructuredContent())
+		return f(unstructuredConfig)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update status for AuthConfig %s: %w", authConfig.Name, err)
 	}
-
 	updatedAuthConfig, err := h.authConfigs.Update(authConfig.Name, updated)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update AuthConfig %s: %w", authConfig.Name, err)
@@ -79,11 +85,52 @@ func (h *handler) migrateAuthConfigToSecret(authConfig *apimgmtv3.AuthConfig, f 
 	return updatedAuthConfig, nil
 }
 
-// migrateShibbolethSecrets effects the migration of secrets for the Shibboleth provider.
-func (h *handler) migrateShibbolethSecrets(unstructuredConfig map[string]any) (runtime.Object, error) {
+func (h *handler) fixShibbolethSecretReference(obj runtime.Object) (runtime.Object, error) {
 	shibbConfig := &apimgmtv3.ShibbolethConfig{}
+	switch v := obj.(type) {
+	case *apimgmtv3.ShibbolethConfig:
+		shibbConfig = v
+	case *apimgmtv3.AuthConfig:
+		unstructuredConfig, err := getUnstructuredAuthConfigByName(h.authConfigs, v.Name)
+		if err != nil {
+			return nil, err
+		}
 
-	err := common.Decode(unstructuredConfig, shibbConfig)
+		if err := common.Decode(unstructuredConfig.UnstructuredContent(), shibbConfig); err != nil {
+			return nil, fmt.Errorf("unable to decode ShibbolethConfig: %w", err)
+		}
+	}
+
+	if apimgmtv3.AuthConfigConditionShibbolethSecretFixed.IsTrue(shibbConfig) {
+		return obj, nil
+	}
+
+	updated, err := apimgmtv3.AuthConfigConditionShibbolethSecretFixed.DoUntilTrue(shibbConfig, func() (runtime.Object, error) {
+		// This is fixing a bug where the secret was created as a lower-case
+		// name, but referenced with mixed-case.
+		const badSecretName = "cattle-global-data:shibbolethconfig-serviceAccountPassword"
+		if shibbConfig.OpenLdapConfig.ServiceAccountPassword == badSecretName {
+			shibbConfig.OpenLdapConfig.ServiceAccountPassword = strings.ToLower(shibbConfig.OpenLdapConfig.ServiceAccountPassword)
+		}
+		return shibbConfig, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to update status for AuthConfig %s: %w", shibbConfig.Name, err)
+	}
+
+	updatedShibbolethConfig, err := h.authConfigs.Update(shibbConfig.Name, updated)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update AuthConfig %s: %w", shibbConfig.Name, err)
+	}
+
+	return updatedShibbolethConfig, nil
+}
+
+// migrateShibbolethSecrets effects the migration of secrets for the Shibboleth provider.
+func (h *handler) migrateShibbolethSecrets(unstructuredConfig runtime.Unstructured) (runtime.Object, error) {
+	shibbConfig := &apimgmtv3.ShibbolethConfig{}
+	err := common.Decode(unstructuredConfig.UnstructuredContent(), shibbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode ShibbolethConfig: %w", err)
 	}
@@ -118,10 +165,9 @@ func (h *handler) migrateShibbolethSecrets(unstructuredConfig map[string]any) (r
 }
 
 // migrateOKTASecrets effects the migration of secrets for the OKTA provider.
-func (h *handler) migrateOKTASecrets(unstructuredConfig map[string]any) (runtime.Object, error) {
+func (h *handler) migrateOKTASecrets(unstructuredConfig runtime.Unstructured) (runtime.Object, error) {
 	oktaConfig := &apimgmtv3.OKTAConfig{}
-
-	err := common.Decode(unstructuredConfig, oktaConfig)
+	err := common.Decode(unstructuredConfig.UnstructuredContent(), oktaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode OKTAConfig: %w", err)
 	}
@@ -130,7 +176,6 @@ func (h *handler) migrateOKTASecrets(unstructuredConfig map[string]any) (runtime
 		// OpenLDAP is not configured, so nothing else is needed
 		return oktaConfig, nil
 	}
-
 	secretName := fmt.Sprintf("%s-%s", strings.ToLower(oktaConfig.Type), serviceAccountPasswordFieldName)
 	lowercaseFieldName := strings.ToLower(serviceAccountPasswordFieldName)
 
@@ -197,8 +242,8 @@ func setUnstructuredStatus(unstructured runtime.Unstructured, key condition.Cond
 }
 
 // getUnstructuredAuthConfig attempts to get the unstructured AuthConfig for the AuthConfig that is passed in.
-func getUnstructuredAuthConfig(unstructuredClient authConfigsClient, authConfig *apimgmtv3.AuthConfig) (runtime.Unstructured, error) {
-	unstructuredAuthConfig, err := unstructuredClient.Get(authConfig.Name, metav1.GetOptions{})
+func getUnstructuredAuthConfigByName(unstructuredClient authConfigsClient, name string) (runtime.Unstructured, error) {
+	unstructuredAuthConfig, err := unstructuredClient.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve unstructured data for AuthConfig from cluster: %w", err)
 	}

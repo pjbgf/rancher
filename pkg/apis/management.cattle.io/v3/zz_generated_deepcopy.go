@@ -7436,6 +7436,13 @@ func (in *RoleTemplate) DeepCopyInto(out *RoleTemplate) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ExternalRules != nil {
+		in, out := &in.ExternalRules, &out.ExternalRules
+		*out = make([]rbacv1.PolicyRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.RoleTemplateNames != nil {
 		in, out := &in.RoleTemplateNames, &out.RoleTemplateNames
 		*out = make([]string, len(*in))
@@ -8578,6 +8585,20 @@ func (in *UserAttribute) DeepCopyInto(out *UserAttribute) {
 			}
 			(*out)[key] = outVal
 		}
+	}
+	if in.LastLogin != nil {
+		in, out := &in.LastLogin, &out.LastLogin
+		*out = (*in).DeepCopy()
+	}
+	if in.DisableAfter != nil {
+		in, out := &in.DisableAfter, &out.DisableAfter
+		*out = new(metav1.Duration)
+		**out = **in
+	}
+	if in.DeleteAfter != nil {
+		in, out := &in.DeleteAfter, &out.DeleteAfter
+		*out = new(metav1.Duration)
+		**out = **in
 	}
 	return
 }

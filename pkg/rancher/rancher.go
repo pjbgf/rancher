@@ -3,6 +3,7 @@ package rancher
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,8 +11,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	responsewriter "github.com/rancher/apiserver/pkg/middleware"
 	"github.com/rancher/rancher/pkg/api/norman/customization/kontainerdriver"
 	steveapi "github.com/rancher/rancher/pkg/api/steve"
@@ -43,9 +42,9 @@ import (
 	aggregation2 "github.com/rancher/steve/pkg/aggregation"
 	steveauth "github.com/rancher/steve/pkg/auth"
 	steveserver "github.com/rancher/steve/pkg/server"
-	"github.com/rancher/wrangler/v2/pkg/generic"
-	"github.com/rancher/wrangler/v2/pkg/k8scheck"
-	"github.com/rancher/wrangler/v2/pkg/unstructured"
+	"github.com/rancher/wrangler/v3/pkg/generic"
+	"github.com/rancher/wrangler/v3/pkg/k8scheck"
+	"github.com/rancher/wrangler/v3/pkg/unstructured"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	v1 "k8s.io/api/core/v1"
@@ -563,13 +562,13 @@ func migrateEncryptionConfig(ctx context.Context, restConfig *rest.Config) error
 
 			clusterBytes, err := rawDynamicCluster.MarshalJSON()
 			if err != nil {
-				return false, errors.Wrap(err, "error trying to Marshal dynamic cluster")
+				return false, fmt.Errorf("error trying to Marshal dynamic cluster: %w", err)
 			}
 
 			var cluster *v3.Cluster
 
 			if err := json.Unmarshal(clusterBytes, &cluster); err != nil {
-				return false, errors.Wrap(err, "error trying to Unmarshal dynamicCluster into v3 cluster")
+				return false, fmt.Errorf("error trying to Unmarshal dynamicCluster into v3 cluster: %w", err)
 			}
 
 			if cluster.Annotations == nil {
@@ -591,9 +590,7 @@ func migrateEncryptionConfig(ctx context.Context, restConfig *rest.Config) error
 			}
 			return false, err
 		})
-		if err != nil {
-			allErrors = multierror.Append(err, allErrors)
-		}
+		allErrors = errors.Join(err, allErrors)
 	}
 	return allErrors
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/norman/types/convert"
 	v3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	v1 "github.com/rancher/rancher/pkg/apis/provisioning.cattle.io/v1"
+	"github.com/rancher/rancher/pkg/capr"
 	"github.com/rancher/rancher/pkg/features"
 	fleetconst "github.com/rancher/rancher/pkg/fleet"
 	capicontrollers "github.com/rancher/rancher/pkg/generated/controllers/cluster.x-k8s.io/v1beta1"
@@ -18,16 +19,16 @@ import (
 	"github.com/rancher/rancher/pkg/provisioningv2/kubeconfig"
 	"github.com/rancher/rancher/pkg/settings"
 	"github.com/rancher/rancher/pkg/wrangler"
-	"github.com/rancher/wrangler/v2/pkg/apply"
-	"github.com/rancher/wrangler/v2/pkg/condition"
-	corecontrollers "github.com/rancher/wrangler/v2/pkg/generated/controllers/core/v1"
-	"github.com/rancher/wrangler/v2/pkg/generic"
-	"github.com/rancher/wrangler/v2/pkg/genericcondition"
-	"github.com/rancher/wrangler/v2/pkg/kstatus"
-	"github.com/rancher/wrangler/v2/pkg/name"
-	"github.com/rancher/wrangler/v2/pkg/randomtoken"
-	"github.com/rancher/wrangler/v2/pkg/relatedresource"
-	"github.com/rancher/wrangler/v2/pkg/yaml"
+	"github.com/rancher/wrangler/v3/pkg/apply"
+	"github.com/rancher/wrangler/v3/pkg/condition"
+	corecontrollers "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/v3/pkg/generic"
+	"github.com/rancher/wrangler/v3/pkg/genericcondition"
+	"github.com/rancher/wrangler/v3/pkg/kstatus"
+	"github.com/rancher/wrangler/v3/pkg/name"
+	"github.com/rancher/wrangler/v3/pkg/randomtoken"
+	"github.com/rancher/wrangler/v3/pkg/relatedresource"
+	"github.com/rancher/wrangler/v3/pkg/yaml"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -317,6 +318,15 @@ func (h *handler) createNewCluster(cluster *v1.Cluster, status v1.ClusterStatus,
 			Name:  env.Name,
 			Value: env.Value,
 		})
+	}
+
+	if cluster.Spec.RKEConfig != nil {
+		if dir := cluster.Spec.RKEConfig.DataDirectories.SystemAgent; dir != "" {
+			spec.AgentEnvVars = append(spec.AgentEnvVars, corev1.EnvVar{
+				Name:  capr.SystemAgentDataDirEnvVar,
+				Value: dir,
+			})
+		}
 	}
 
 	if cluster.Spec.ClusterAgentDeploymentCustomization != nil {

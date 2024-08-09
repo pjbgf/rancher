@@ -58,7 +58,7 @@ type mcm struct {
 	startLock   sync.Mutex
 }
 
-func buildScaledContext(ctx context.Context, wranglerContext *wrangler.Context, cfg *Options) (*config.ScaledContext,
+func BuildScaledContext(ctx context.Context, wranglerContext *wrangler.Context, cfg *Options) (*config.ScaledContext,
 	*clustermanager.Manager, *mcmauthorizer.Authorizer, error) {
 	scaledContext, err := config.NewScaledContext(*wranglerContext.RESTConfig, &config.ScaleContextOptions{
 		ControllerFactory: wranglerContext.ControllerFactory,
@@ -105,7 +105,7 @@ func buildScaledContext(ctx context.Context, wranglerContext *wrangler.Context, 
 }
 
 func newMCM(ctx context.Context, wranglerContext *wrangler.Context, cfg *Options) (*mcm, error) {
-	scaledContext, clusterManager, tunnelAuthorizer, err := buildScaledContext(ctx, wranglerContext, cfg)
+	scaledContext, clusterManager, tunnelAuthorizer, err := BuildScaledContext(ctx, wranglerContext, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +223,7 @@ func (m *mcm) Start(ctx context.Context) error {
 		clusterupstreamrefresher.MigrateEksRefreshCronSetting(m.wranglerContext)
 		go managementdata.CleanupDuplicateBindings(m.ScaledContext, m.wranglerContext)
 		go managementdata.CleanupOrphanBindings(m.ScaledContext, m.wranglerContext)
+
 		logrus.Infof("Rancher startup complete")
 		return nil
 	})

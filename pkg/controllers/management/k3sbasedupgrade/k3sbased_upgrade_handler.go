@@ -65,6 +65,7 @@ func (h *handler) onClusterChange(key string, cluster *v3.Cluster) (*v3.Cluster,
 		if !needsUpgrade {
 			// if upgrade was in progress, make sure to set the state back
 			if v32.ClusterConditionUpgraded.IsUnknown(cluster) {
+				logrus.Infof("[k3s-based-upgrader] finished upgrading cluster [%s]", cluster.Name)
 				v32.ClusterConditionUpgraded.True(cluster)
 				v32.ClusterConditionUpgraded.Message(cluster, "")
 				return h.clusterClient.Update(cluster)
@@ -74,6 +75,18 @@ func (h *handler) onClusterChange(key string, cluster *v3.Cluster) (*v3.Cluster,
 
 	}
 
+	if v32.ClusterConditionUpgraded.IsTrue(cluster) {
+		logrus.Infof("[k3s-based-upgrader] upgrading cluster [%s] version from [%s] to [%s]",
+			cluster.Name, cluster.Status.Version.GitVersion, updateVersion)
+		if isNewer {
+			logrus.Debugf("[k3s-based-upgrader] upgrading cluster [%s] because cluster version [%s] is newer than observed version [%s]",
+				cluster.Name, updateVersion, cluster.Status.Version.GitVersion)
+		} else {
+			logrus.Debugf("[k3s-based-upgrader] upgrading cluster [%s] because cluster version [%s] is newer than observed node version",
+				cluster.Name, updateVersion)
+		}
+	}
+
 	// set cluster upgrading status
 	cluster, err = h.modifyClusterCondition(cluster, planv1.Plan{}, planv1.Plan{}, strategy)
 	if err != nil {
@@ -81,7 +94,7 @@ func (h *handler) onClusterChange(key string, cluster *v3.Cluster) (*v3.Cluster,
 	}
 
 	// create or update k3supgradecontroller if necessary
-	if err = h.deployK3sBasedUpgradeController(cluster.Name, updateVersion, isK3s, isRke2); err != nil {
+	if err = h.deployK3sBasedUpgradeController(cluster.Name, isK3s, isRke2); err != nil {
 		return cluster, err
 	}
 
@@ -95,7 +108,7 @@ func (h *handler) onClusterChange(key string, cluster *v3.Cluster) (*v3.Cluster,
 
 // deployK3sBaseUpgradeController creates a rancher k3s/rke2 upgrader controller if one does not exist.
 // Updates k3s upgrader controller if one exists and is not the newest available version.
-func (h *handler) deployK3sBasedUpgradeController(clusterName, updateVersion string, isK3s, isRke2 bool) error {
+func (h *handler) deployK3sBasedUpgradeController(clusterName string, isK3s, isRke2 bool) error {
 	userCtx, err := h.manager.UserContextNoControllers(clusterName)
 	if err != nil {
 		return err
@@ -147,6 +160,7 @@ func (h *handler) deployK3sBasedUpgradeController(clusterName, updateVersion str
 		if !errors.IsNotFound(err) {
 			return err
 		}
+		logrus.Infof("[k3s-based-upgrader] installing app [%s] in cluster [%s]", appname, clusterName)
 		desiredApp := &v33.App{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      appname,
@@ -159,7 +173,6 @@ func (h *handler) deployK3sBasedUpgradeController(clusterName, updateVersion str
 				Description:     "Upgrade controller for k3s based clusters",
 				ExternalID:      latestVersionID,
 				ProjectName:     appProjectName,
-				Answers:         make(map[string]string),
 				TargetNamespace: systemUpgradeNS,
 			},
 		}
@@ -179,11 +192,14 @@ func (h *handler) deployK3sBasedUpgradeController(clusterName, updateVersion str
 			}
 		}
 
-		desiredApp := app.DeepCopy()
-		if desiredApp.Spec.Answers == nil {
-			desiredApp.Spec.Answers = make(map[string]string)
+		// everything is up-to-date and are set up properly, no need to update.
+		if app.Spec.ExternalID == latestVersionID {
+			return nil
 		}
+
+		desiredApp := app.DeepCopy()
 		desiredApp.Spec.ExternalID = latestVersionID
+		logrus.Infof("[k3s-based-upgrader] updating app [%s] in cluster [%s]", appname, clusterName)
 		// new version of k3s upgrade available, or the valuesYaml have changed, update app
 		if _, err = appClient.Update(desiredApp); err != nil {
 			return err
@@ -191,12 +207,6 @@ func (h *handler) deployK3sBasedUpgradeController(clusterName, updateVersion str
 	}
 
 	return nil
-}
-
-// Is125OrAbove determines if a particular Kubernetes version is
-// equal to or greater than 1.25.0
-func Is125OrAbove(version string) (bool, error) {
-	return IsNewerVersion("v1.24.99", version)
 }
 
 // IsNewerVersion returns true if updated versions semver is newer and false if its
@@ -238,6 +248,8 @@ func (h *handler) nodesNeedUpgrade(cluster *v3.Cluster, version string) (bool, e
 			return false, err
 		}
 		if isNewer {
+			logrus.Debugf("[k3s-based-upgrader] cluster [%s] version [%s] is newer than observed node [%s] version [%s]",
+				cluster.Name, version, node.Name, node.Status.InternalNodeStatus.NodeInfo.KubeletVersion)
 			return true, nil
 		}
 	}
