@@ -329,4 +329,13 @@ VOLUME /var/lib/kubelet
 VOLUME /var/lib/cni
 VOLUME /var/log
 
+LABEL "io.artifacthub.package.logo-url"="https://github.com/rancher/ui/blob/master/public/assets/images/logos/welcome-cow.svg" \
+      "io.artifacthub.package.readme-url"="https://github.com/rancher/rancher/blob/${VERSION}/README.md" \
+      "org.opencontainers.image.description"="Rancher Manager: complete container management platform." \
+      "org.opencontainers.image.title"="Rancher Manager: complete container management platform." \
+      "org.opencontainers.image.source"="https://github.com/rancher/rancher" \
+      "org.opencontainers.image.version"=${VERSION} \
+      "org.opencontainers.image.ref.name"=${VERSION} \
+      "org.opensuse.reference"=rancher/rancher:${VERSION}
+
 ENTRYPOINT ["entrypoint.sh"]
