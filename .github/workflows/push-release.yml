@@ -138,6 +138,8 @@ jobs:
             "CATTLE_FLEET_VERSION=${{ steps.env.outputs.CATTLE_FLEET_VERSION }}"
           tags: ${{ env.IMAGE }}:${{ env.TAG }}-${{ matrix.arch }}
           context: .
+          sbom: true
+          provenance: mode=max
           platforms: "${{ matrix.os }}/${{ matrix.arch }}"
           file: ./package/Dockerfile
           labels: "${{ steps.meta.outputs.labels }}"
@@ -224,6 +226,8 @@ jobs:
             "CATTLE_RANCHER_WEBHOOK_VERSION=${{ env.CATTLE_RANCHER_WEBHOOK_VERSION }}"
           tags: ${{ env.IMAGE_AGENT }}:${{ env.TAG }}-${{ matrix.arch }}
           context: .
+          sbom: true
+          provenance: mode=max
           platforms: "${{ matrix.os }}/${{ matrix.arch }}"
           file: ./package/Dockerfile.agent
           labels: "${{ steps.meta.outputs.labels }}"
@@ -466,6 +470,8 @@ jobs:
             "RANCHER_REPO=${{ env.REPOSITORY_OWNER }}"
           tags: ${{ env.IMAGE_INSTALLER }}:${{ env.TAG }}-${{ matrix.arch }}
           context: .
+          sbom: true
+          provenance: mode=max
           platforms: "${{ matrix.os }}/${{ matrix.arch }}"
           file: ./package/Dockerfile.installer
           labels: "${{ steps.meta.outputs.labels }}"
