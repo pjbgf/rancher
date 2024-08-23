@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+set -x
+
+TARGET_PLATFORMS=linux/amd64,linux/arm64
+BUILDX_ACTION=${BUILDX_ACTION}
+REGISTRY=ghcr.io/pjbgf/rancher
+RANCHER_BASE_IMAGE=${REGISTRY}/rancher-base
+
+BASE_TAG=$(shasum -a 256 ./package/Dockerfile.base | cut -f1 -d' ')
+echo "Try to pull ${RANCHER_BASE_IMAGE}:${BASE_TAG}"
+docker pull "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 2> /dev/null || true
+if docker images "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 2> /dev/null | grep "${BASE_TAG}"; then
+    echo "Image ${RANCHER_BASE_IMAGE}:${BASE_TAG} found locally, skip building it";
+else
+#--builder rancher --platform=${TARGET_PLATFORMS} \
+    docker buildx build -t "${RANCHER_BASE_IMAGE}:${BASE_TAG}" \
+        ${BUILDX_ACTION} -f ./package/Dockerfile.base .
+    echo "built ${RANCHER_BASE_IMAGE}:${BASE_TAG}"
+fi

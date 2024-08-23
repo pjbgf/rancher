@@ -18,19 +18,25 @@ WORKDIR /app
 COPY go.mod go.sum .
 COPY pkg/apis/go.mod pkg/apis/go.sum pkg/apis/
 COPY pkg/client/go.mod pkg/client/go.sum pkg/client/
-RUN go mod download
+
+RUN go env -w GOCACHE=/go-cache && \
+    go env -w GOMODCACHE=/gomod-cache
+RUN --mount=type=cache,target=/gomod-cache \
+        go mod download
 
 COPY pkg/ pkg/
 COPY main.go .
 
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags "${TAGS}" -ldflags "${LDFLAGS}" -o rancher
+RUN go env -w GOCACHE=/go-cache
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
+        GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags "${TAGS}" -ldflags "${LDFLAGS}" -o rancher
 
 FROM ${RANCHER_BASE_IMAGE}
 
 ARG VERSION=${VERSION}
-ENV CATTLE_SERVER_VERSION ${VERSION}
-ENV CATTLE_AGENT_IMAGE ${IMAGE_REPO}/rancher-agent:${VERSION}
-ENV CATTLE_SERVER_IMAGE ${IMAGE_REPO}/rancher
+ENV CATTLE_SERVER_VERSION=${VERSION}
+ENV CATTLE_AGENT_IMAGE=${IMAGE_REPO}/rancher-agent:${VERSION}
+ENV CATTLE_SERVER_IMAGE=${IMAGE_REPO}/rancher
 
 COPY --chown=root:root --chmod=0755 \
      --from=build /app/rancher /usr/bin/

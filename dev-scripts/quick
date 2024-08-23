@@ -7,7 +7,8 @@ set -x
 
 # variables
 COMMIT=$(git rev-parse --short HEAD)
-TAG="${TAG:-$(yq '.env.TAG | sub("-.*", "")' < .github/workflows/pull-request.yml)-${COMMIT}}"
+#TAG="${TAG:-$(yq '.env.TAG | sub("-.*", "")' < .github/workflows/pull-request.yml)-${COMMIT}}"
+TAG="${TAG:-test-${COMMIT}}"
 OS="${OS:-linux}"
 ARCH="${ARCH:-amd64}"
 RKE_VERSION=$(grep -m1 'github.com/rancher/rke' go.mod | awk '{print $2}')
@@ -18,19 +19,13 @@ CATTLE_RANCHER_WEBHOOK_VERSION=$(yq '.webhookVersion' < build.yaml)
 CATTLE_CSP_ADAPTER_MIN_VERSION=$(yq '.cspAdapterMinVersion' < build.yaml)
 CATTLE_FLEET_VERSION=$(yq '.fleetVersion' < build.yaml)
 
-REGISTRY=ghcr.io/paulinhu
+BUILDX_ACTION=${BUILDX_ACTION:- --load}
+REGISTRY=ghcr.io/pjbgf/rancher
 RANCHER_BASE_IMAGE=${REGISTRY}/rancher-base
 
 BASE_TAG=$(shasum -a 256 ./package/Dockerfile.base | cut -f1 -d' ')
-echo "looking for ${RANCHER_BASE_IMAGE}:${BASE_TAG}"
-docker pull "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 2> /dev/null || true
-if docker images "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 1> /dev/null 2>&1 | grep -q "${RANCHER_BASE_IMAGE}:${BASE_TAG}"; then
-    echo "Image ${RANCHER_BASE_IMAGE}:${BASE_TAG} found locally, skipping building it";
-else
-    docker buildx build -t "${RANCHER_BASE_IMAGE}:${BASE_TAG}" \
-        -f ./package/Dockerfile.base .
-    echo "built ${RANCHER_BASE_IMAGE}:${BASE_TAG}"
-fi
+
+# ./base
 
 # start the builds
 docker buildx build \
@@ -44,7 +39,7 @@ docker buildx build \
   --build-arg CATTLE_FLEET_VERSION=${CATTLE_FLEET_VERSION} \
   --tag ${REGISTRY}/rancher:${TAG} \
   --platform="${OS}/${ARCH}" \
-  --file ./package/Dockerfile .
+  ${BUILDX_ACTION} --file ./package/Dockerfile .
 
 docker buildx build \
   --build-arg RANCHER_BASE_IMAGE=${RANCHER_BASE_IMAGE}:${BASE_TAG} \
@@ -57,4 +52,4 @@ docker buildx build \
   --build-arg CATTLE_RANCHER_WEBHOOK_VERSION=${CATTLE_RANCHER_WEBHOOK_VERSION} \
   --tag ${REGISTRY}/rancher-agent:${TAG} \
   --platform="${OS}/${ARCH}" \
-  --file ./package/Dockerfile.agent .
+  ${BUILDX_ACTION} --file ./package/Dockerfile.agent .
