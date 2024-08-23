@@ -118,10 +118,11 @@ jobs:
           context: .
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: "${{ matrix.os }}/${{ matrix.arch }}"
+          # platforms: "${{ matrix.os }}/${{ matrix.arch }}"
+          platforms: "linux/amd64,linux/arm64"
           file: ./package/Dockerfile
           labels: "${{ steps.meta.outputs.labels }}"
-          outputs: type=docker,dest=/tmp/rancher-${{ matrix.os }}-${{ matrix.arch }}.tar
+          outputs: type=docker,dest=/tmp/rancher-linux.tar
       - name: Upload image
         uses: actions/upload-artifact@v4
         with:
