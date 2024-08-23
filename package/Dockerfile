@@ -19,16 +19,14 @@ COPY go.mod go.sum .
 COPY pkg/apis/go.mod pkg/apis/go.sum pkg/apis/
 COPY pkg/client/go.mod pkg/client/go.sum pkg/client/
 
-RUN go env -w GOCACHE=/go-cache && \
-    go env -w GOMODCACHE=/gomod-cache
-RUN --mount=type=cache,target=/gomod-cache \
+RUN go env -w GOMODCACHE=/root/.cache/go-build
+RUN --mount=type=cache,target=/root/.cache/go-build \
         go mod download
 
 COPY pkg/ pkg/
 COPY main.go .
 
-RUN go env -w GOCACHE=/go-cache
-RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
+RUN --mount=type=cache,target=/root/.cache/go-build \
         GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tags "${TAGS}" -ldflags "${LDFLAGS}" -o rancher
 
 FROM ${RANCHER_BASE_IMAGE}
@@ -50,4 +48,4 @@ VOLUME /var/lib/kubelet
 VOLUME /var/lib/cni
 VOLUME /var/log
 
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/entrypoint.sh"]
