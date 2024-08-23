@@ -21,7 +21,17 @@ if [ ${ARCH} == s390x ]; then
     ETCD_UNSUPPORTED_ARCH=s390x
 fi
 
+BASE_TAG=$(shasum -a 256 Dockerfile.base | cut -f1 -d' ')
+docker pull "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 2> /dev/null || true
+if docker images "${RANCHER_BASE_IMAGE}:${BASE_TAG}" 1> /dev/null 2>&1 | grep -q "${RANCHER_BASE_IMAGE}:${BASE_TAG}"; then
+    echo "Image ${RANCHER_BASE_IMAGE}:${BASE_TAG} found locally, skipping building it";
+else
+    docker build -t "${RANCHER_BASE_IMAGE}:${BASE_TAG}" \
+        -f Dockerfile.base . ;
+fi
+
 docker build \
+    --build-arg RANCHER_BASE_IMAGE=${RANCHER_BASE_IMAGE}:${BASE_TAG} \
     --build-arg VERSION=${TAG} \
     --build-arg ETCD_UNSUPPORTED_ARCH=${ETCD_UNSUPPORTED_ARCH} \
     --build-arg ARCH=${ARCH} \
