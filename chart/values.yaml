@@ -287,3 +287,8 @@ extraObjects: []
 #         app: rancher
 #     policyTypes:
 #       - Ingress
+
+# rootless allows the execution of Rancher Manager without running as root.
+# This is an experimental feature.
+rootless:
+  enabled: false

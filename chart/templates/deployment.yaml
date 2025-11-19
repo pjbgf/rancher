@@ -30,6 +30,12 @@ spec:
         app: {{ template "rancher.fullname" . }}
         release: {{ .Release.Name }}
     spec:
+{{- if .Values.rootless.enabled }}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "80"
+{{- end }}
       priorityClassName: {{ .Values.priorityClassName }}
       serviceAccountName: {{ template "rancher.fullname" . }}
 {{- if .Values.imagePullSecrets }}
@@ -84,6 +90,18 @@ spec:
 {{- end}}
         - containerPort: 6666
           protocol: TCP
+{{- if .Values.rootless.enabled }}
+        securityContext:
+          runAsUser: 1500 # must be aligned with Dockerfile.
+          runAsNonRoot: true
+          
+          capabilities:
+            drop:
+            - ALL
+
+          allowPrivilegeEscalation: false
+          privileged: false
+{{- end }}
         args:
 {{- if .Values.debug }}
         - "--debug"

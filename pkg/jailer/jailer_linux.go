@@ -42,10 +42,21 @@ func JailCommand(cmd *exec.Cmd, jailPath string) (*exec.Cmd, error) {
 		}
 	}
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: cred,
-		Chroot:     jailPath,
+	if uID := os.Getuid(); uID == 1500 {
+		// The rootless execution mode currently has no support for
+		// chroot for jail.
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: cred,
+			Cloneflags: syscall.CLONE_NEWUSER | syscall.CLONE_NEWNS,
+		}
+	} else {
+
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: cred,
+			Chroot:     jailPath,
+		}
 	}
+
 	cmd.Env = getWhitelistedEnvVars(cmd.Env)
 	cmd.Env = append(cmd.Env, "PWD=/")
 	cmd.Dir = "/"
