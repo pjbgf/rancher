@@ -81,7 +81,7 @@ RUN mkdir -p /var/lib/rancher-data/local-catalogs/v2 && \
     # Temporarily clone from our GitHub's main repo, to avoid unnecessary load in git.rancher.io
     git config --global url."https://github.com/rancher/".insteadOf https://git.rancher.io/ && \
     # Charts need to be copied into the sha256 value of git url computed in https://github.com/rancher/rancher/blob/5ebda9ac23c06e9647b586ec38aa51cc9ff9b031/pkg/catalogv2/git/download.go#L102 to create a unique folder per url
-    git clone --no-checkout -b $CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/charts /var/lib/rancher-data/local-catalogs/v2/rancher-charts/4b40cac650031b74776e87c1a726b0484d0877c3ec137da0872547ff9b73a721
+    git clone --filter=blob:none --no-checkout -b $CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/charts /var/lib/rancher-data/local-catalogs/v2/rancher-charts/4b40cac650031b74776e87c1a726b0484d0877c3ec137da0872547ff9b73a721
 
 FROM builder AS partner-charts
 ARG PARTNER_CHART_DEFAULT_BRANCH
@@ -89,7 +89,7 @@ RUN mkdir -p /var/lib/rancher-data/local-catalogs/v2 && \
     # Temporarily clone from our GitHub's main repo, to avoid unnecessary load in git.rancher.io
     git config --global url."https://github.com/rancher/".insteadOf https://git.rancher.io/ && \
     # Charts need to be copied into the sha256 value of git url computed in https://github.com/rancher/rancher/blob/5ebda9ac23c06e9647b586ec38aa51cc9ff9b031/pkg/catalogv2/git/download.go#L102 to create a unique folder per url
-    git clone --no-checkout -b $PARTNER_CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/partner-charts /var/lib/rancher-data/local-catalogs/v2/rancher-partner-charts/8f17acdce9bffd6e05a58a3798840e408c4ea71783381ecd2e9af30baad65974
+    git clone --filter=blob:none --no-checkout -b $PARTNER_CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/partner-charts /var/lib/rancher-data/local-catalogs/v2/rancher-partner-charts/8f17acdce9bffd6e05a58a3798840e408c4ea71783381ecd2e9af30baad65974
 
 
 FROM builder AS rke2-charts
@@ -98,7 +98,7 @@ RUN mkdir -p /var/lib/rancher-data/local-catalogs/v2 && \
     # Temporarily clone from our GitHub's main repo, to avoid unnecessary load in git.rancher.io
     git config --global url."https://github.com/rancher/".insteadOf https://git.rancher.io/ && \
     # Charts need to be copied into the sha256 value of git url computed in https://github.com/rancher/rancher/blob/5ebda9ac23c06e9647b586ec38aa51cc9ff9b031/pkg/catalogv2/git/download.go#L102 to create a unique folder per url
-    git clone --no-checkout -b $RKE2_CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/rke2-charts /var/lib/rancher-data/local-catalogs/v2/rancher-rke2-charts/675f1b63a0a83905972dcab2794479ed599a6f41b86cd6193d69472d0fa889c9
+    git clone --filter=blob:none --no-checkout -b $RKE2_CHART_DEFAULT_BRANCH --depth 1 https://git.rancher.io/rke2-charts /var/lib/rancher-data/local-catalogs/v2/rancher-rke2-charts/675f1b63a0a83905972dcab2794479ed599a6f41b86cd6193d69472d0fa889c9
 
 
 FROM builder AS kdm
@@ -228,45 +228,45 @@ RUN curl -LO https://github.com/harvester/docker-machine-driver-harvester/releas
 ENV ETCD_URL=https://github.com/etcd-io/etcd/releases/download/${CATTLE_ETCD_VERSION}/etcd-${CATTLE_ETCD_VERSION}-linux-${ARCH}.tar.gz
 
 # Set up K3s: copy the necessary binaries from the K3s image.
-COPY --from=rancher/k3s:v1.34.1-k3s1 \
-    /bin/blkid \
-    /bin/bandwidth \
-    /bin/cni \
-    /bin/conntrack \
-    /bin/containerd \
-    /bin/containerd-shim-runc-v2 \
-    /bin/ethtool \
-    /bin/firewall \
-    /bin/ip \
-    /bin/ipset \
-    /bin/k3s \
-    /bin/losetup \
-    /bin/pigz \
-    /bin/runc \
-    /bin/which \
-    /bin/aux/xtables-legacy-multi \
-    /usr/bin/
+# COPY --from=rancher/k3s:v1.34.1-k3s1 \
+#     /bin/blkid \
+#     /bin/bandwidth \
+#     /bin/cni \
+#     /bin/conntrack \
+#     /bin/containerd \
+#     /bin/containerd-shim-runc-v2 \
+#     /bin/ethtool \
+#     /bin/firewall \
+#     /bin/ip \
+#     /bin/ipset \
+#     /bin/k3s \
+#     /bin/losetup \
+#     /bin/pigz \
+#     /bin/runc \
+#     /bin/which \
+#     /bin/aux/xtables-legacy-multi \
+#     /usr/bin/
 
-RUN ln -s /usr/bin/cni /usr/bin/bridge && \
-    ln -s /usr/bin/cni /usr/bin/flannel && \
-    ln -s /usr/bin/cni /usr/bin/host-local && \
-    ln -s /usr/bin/cni /usr/bin/loopback && \
-    ln -s /usr/bin/cni /usr/bin/portmap && \
-    ln -s /usr/bin/k3s /usr/bin/crictl && \
-    ln -s /usr/bin/k3s /usr/bin/ctr && \
-    ln -s /usr/bin/k3s /usr/bin/k3s-agent && \
-    ln -s /usr/bin/k3s /usr/bin/k3s-etcd-snapshot && \
-    ln -s /usr/bin/k3s /usr/bin/k3s-server && \
-    ln -s /usr/bin/k3s /usr/bin/kubectl && \
-    ln -s /usr/bin/pigz /usr/bin/unpigz && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-save && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-restore && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-translate && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-save && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-restore && \
-    ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-translate
+# RUN ln -s /usr/bin/cni /usr/bin/bridge && \
+#     ln -s /usr/bin/cni /usr/bin/flannel && \
+#     ln -s /usr/bin/cni /usr/bin/host-local && \
+#     ln -s /usr/bin/cni /usr/bin/loopback && \
+#     ln -s /usr/bin/cni /usr/bin/portmap && \
+#     ln -s /usr/bin/k3s /usr/bin/crictl && \
+#     ln -s /usr/bin/k3s /usr/bin/ctr && \
+#     ln -s /usr/bin/k3s /usr/bin/k3s-agent && \
+#     ln -s /usr/bin/k3s /usr/bin/k3s-etcd-snapshot && \
+#     ln -s /usr/bin/k3s /usr/bin/k3s-server && \
+#     ln -s /usr/bin/k3s /usr/bin/kubectl && \
+#     ln -s /usr/bin/pigz /usr/bin/unpigz && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-save && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-restore && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/iptables-translate && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-save && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-restore && \
+#     ln -s /usr/bin/xtables-legacy-multi /usr/bin/ip6tables-translate
 
 COPY --from=tini /usr/bin/tini /usr/bin/tini
 
